@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Gastos Compartidos - Mercedes & Darío</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        
+        h1 { color: #333; margin-bottom: 10px; text-align: center; font-size: 28px; }
+        .status { text-align: center; color: #666; margin-bottom: 20px; font-size: 14px; }
+        .status.loading { color: #ff9800; }
+        .status.success { color: #4caf50; }
+        .status.error { color: #f44336; }
+        
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 30px; }
+        @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+        
+        .card { background: #f8f9fa; padding: 20px; border-radius: 8px; border-left: 4px solid #667eea; }
+        .card h2 { font-size: 16px; color: #666; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
+        
+        .form-group { margin-bottom: 12px; }
+        label { display: block; font-size: 13px; color: #666; margin-bottom: 4px; font-weight: 600; }
+        input, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; font-family: inherit; }
+        input:focus, select:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); }
+        
+        .aportes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .buttons { display: flex; gap: 10px; margin-top: 15px; }
+        
+        button { flex: 1; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: 14px; transition: all 0.3s; }
+        .btn-primary { background: #667eea; color: white; }
+        .btn-primary:hover { background: #5568d3; transform: translateY(-2px); box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3); }
+        .btn-secondary { background: #e9ecef; color: #333; }
+        .btn-secondary:hover { background: #dee2e6; }
+        
+        .summary { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+        @media (max-width: 480px) { .summary { grid-template-columns: 1fr; } }
+        
+        .summary-box { background: white; padding: 15px; border-radius: 8px; border: 1px solid #e9ecef; text-align: center; }
+        .summary-label { font-size: 12px; color: #999; text-transform: uppercase; margin-bottom: 5px; }
+        .summary-value { font-size: 24px; font-weight: bold; color: #667eea; }
+        
+        .deuda-box { background: #fff3cd; padding: 15px; border-radius: 8px; border-left: 4px solid #ffc107; margin-bottom: 20px; text-align: center; }
+        .deuda-text { font-size: 16px; font-weight: bold; color: #856404; }
+        
+        .gastos-section { margin-top: 30px; }
+        .gastos-section h2 { color: #333; margin-bottom: 20px; font-size: 20px; }
+        
+        .gastos-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        .gastos-table thead { background: #667eea; color: white; }
+        .gastos-table th { padding: 12px; text-align: left; font-weight: 600; font-size: 13px; }
+        .gastos-table td { padding: 12px; border-bottom: 1px solid #e9ecef; }
+        .gastos-table tbody tr:hover { background: #f8f9fa; }
+        .numero-gasto { font-weight: bold; color: #667eea; text-align: center; }
+        
+        .empty-message { text-align: center; padding: 40px; color: #999; font-size: 16px; }
+        .export-btn { background: #28a745; color: white; width: 100%; margin-top: 20px; padding: 12px; }
+        .export-btn:hover { background: #218838; }
+        .sync-btn { background: #17a2b8; color: white; width: 100%; margin-top: 10px; padding: 10px; font-size: 13px; }
+        .sync-btn:hover { background: #138496; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>💰 Gastos Compartidos - Mercedes & Darío</h1>
+    <div class="status" id="status">Cargando datos...</div>
+    
+    <div class="grid-2">
+        <div class="card">
+            <h2>➕ Nuevo Gasto</h2>
+            <form id="gastoForm">
+                <div class="form-group">
+                    <label>Fecha</label>
+                    <input type="date" id="fecha" required>
+                </div>
+                <div class="form-group">
+                    <label>Categoría</label>
+                    <select id="categoria" required>
+                        <option value="">-- Seleccionar --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Importe ($)</label>
+                    <input type="number" id="importe" placeholder="0.00" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label>Aportes ($)</label>
+                    <div class="aportes-grid">
+                        <div>
+                            <label style="font-size: 12px;">Mercedes</label>
+                            <input type="number" id="aporteMercedes" placeholder="0.00" step="0.01">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px;">Darío</label>
+                            <input type="number" id="aporteDario" placeholder="0.00" step="0.01">
+                        </div>
+                    </div>
+                </div>
+                <div class="buttons">
+                    <button type="submit" class="btn-primary">Agregar Gasto</button>
+                    <button type="reset" class="btn-secondary">Limpiar</button>
+                </div>
+            </form>
+            <button class="sync-btn" onclick="sincronizar()">🔄 Sincronizar</button>
+        </div>
+        
+        <div class="card">
+            <h2>📊 Resumen</h2>
+            <div class="summary">
+                <div class="summary-box">
+                    <div class="summary-label">Total</div>
+                    <div class="summary-value" id="totalGastado">$0.00</div>
+                </div>
+                <div class="summary-box">
+                    <div class="summary-label">Mercedes</div>
+                    <div class="summary-value" id="totalMercedes">$0.00</div>
+                </div>
+                <div class="summary-box">
+                    <div class="summary-label">Darío</div>
+                    <div class="summary-value" id="totalDario">$0.00</div>
+                </div>
+            </div>
+            <div class="deuda-box">
+                <div class="deuda-text" id="deudaText">Cargando...</div>
+            </div>
+            <button class="export-btn" onclick="descargarExcel()">📥 Descargar Excel</button>
+        </div>
+    </div>
+
+    <div class="gastos-section">
+        <h2>📋 Gastos Registrados</h2>
+        <div id="gastosContainer"></div>
+    </div>
+</div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbyb5EW5UTOm9w5kNF6U0JS-wPXaK4Nn7vyGvOCk4uugVkCsmRgFrpqulCPIaa4QUgIZeg/exec";
+let gastos = [];
+let categorias = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('fecha').value = hoy;
+    cargarDatos();
+    document.getElementById('gastoForm').addEventListener('submit', agregarGasto);
+});
+
+async function cargarDatos() {
+    try {
+        setStatus('Cargando datos...', 'loading');
+        const response = await fetch(API_URL);
+        const datos = await response.json();
+        if (datos.error) throw new Error(datos.error);
+        gastos = datos;
+        categorias = [...new Set(gastos.map(g => g.categoria))].sort();
+        actualizarSelectCategorias();
+        actualizar();
+        setStatus('✅ Datos cargados (' + gastos.length + ' gastos)', 'success');
+    } catch(e) {
+        setStatus('⚠️ Error: ' + e.message, 'error');
+    }
+}
+
+function setStatus(msg, tipo) {
+    document.getElementById('status').textContent = msg;
+    document.getElementById('status').className = 'status ' + tipo;
+}
+
+function actualizarSelectCategorias() {
+    const select = document.getElementById('categoria');
+    const actual = select.value;
+    select.innerHTML = '<option value="">-- Seleccionar --</option>';
+    categorias.forEach(cat => {
+        const option = document.createElement('option');
+        option.value = cat;
+        option.textContent = cat;
+        select.appendChild(option);
+    });
+}
+
+function agregarGasto(e) {
+    e.preventDefault();
+    const fecha = document.getElementById('fecha').value;
+    const categoria = document.getElementById('categoria').value;
+    const importe = parseFloat(document.getElementById('importe').value) || 0;
+    const mercedes = parseFloat(document.getElementById('aporteMercedes').value) || 0;
+    const dario = parseFloat(document.getElementById('aporteDario').value) || 0;
+    
+    if (!fecha || !categoria || importe <= 0) { alert('Completá fecha, categoría e importe'); return; }
+    if (mercedes === 0 && dario === 0) { alert('Completá al menos un aporte'); return; }
+    
+    fetch(API_URL, {
+        method: 'POST',
+        body: JSON.stringify({action: 'agregarGasto', fecha, categoria, importe, mercedes, dario})
+    }).then(r => r.json()).then(data => {
+        if (data.success) {
+            alert('✅ Gasto agregado');
+            document.getElementById('gastoForm').reset();
+            document.getElementById('fecha').value = new Date().toISOString().split('T')[0];
+            cargarDatos();
+        } else alert('Error: ' + data.error);
+    });
+}
+
+function actualizar() {
+    let tm = 0, td = 0;
+    gastos.forEach(g => { tm += g.mercedes || 0; td += g.dario || 0; });
+    const totalGastado = tm + td;
+    document.getElementById('totalGastado').textContent = '$' + totalGastado.toFixed(2);
+    document.getElementById('totalMercedes').textContent = '$' + tm.toFixed(2);
+    document.getElementById('totalDario').textContent = '$' + td.toFixed(2);
+    
+    const diferencia = Math.abs(tm - td);
+    const deudaIndividual = diferencia / 2;
+    let deudaText = '✅ Están parejos 🎉';
+    if (tm > td) deudaText = `Darío le debe $${deudaIndividual.toFixed(2)} a Mercedes`;
+    else if (td > tm) deudaText = `Mercedes le debe $${deudaIndividual.toFixed(2)} a Darío`;
+    document.getElementById('deudaText').textContent = deudaText;
+    
+    const container = document.getElementById('gastosContainer');
+    if (gastos.length === 0) { container.innerHTML = '<div class="empty-message">📭 Sin gastos</div>'; return; }
+    
+    const ordenados = [...gastos].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+    let html = '<table class="gastos-table"><thead><tr><th>Nº</th><th>Fecha</th><th>Categoría</th><th>Importe</th><th>Mercedes</th><th>Darío</th></tr></thead><tbody>';
+    ordenados.forEach(g => {
+        html += `<tr><td class="numero-gasto">${g.numero}</td><td>${g.fecha}</td><td>${g.categoria}</td><td>$${g.importe.toFixed(2)}</td><td>${g.mercedes > 0 ? '$' + g.mercedes.toFixed(2) : '-'}</td><td>${g.dario > 0 ? '$' + g.dario.toFixed(2) : '-'}</td></tr>`;
+    });
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+function descargarExcel() {
+    let tm = 0, td = 0;
+    gastos.forEach(g => { tm += g.mercedes || 0; td += g.dario || 0; });
+    const totalGastado = tm + td;
+    let html = '<html><head><meta charset="UTF-8"></head><body><table border="1"><tr style="background:#667eea;color:white;"><th>Nº</th><th>Fecha</th><th>Categoría</th><th>Importe</th><th>Mercedes</th><th>Darío</th></tr>';
+    [...gastos].sort((a,b)=>new Date(a.fecha)-new Date(b.fecha)).forEach(g => {
+        html += `<tr><td>${g.numero}</td><td>${g.fecha}</td><td>${g.categoria}</td><td>$${g.importe.toFixed(2)}</td><td>${g.mercedes > 0 ? '$' + g.mercedes.toFixed(2) : '-'}</td><td>${g.dario > 0 ? '$' + g.dario.toFixed(2) : '-'}</td></tr>`;
+    });
+    html += '<tr><td colspan="6"></td></tr><tr style="background:#f0f0f0;font-weight:bold;"><td></td><td></td><td>TOTALES</td><td>$' + totalGastado.toFixed(2) + '</td><td>$' + tm.toFixed(2) + '</td><td>$' + td.toFixed(2) + '</td></tr>';
+    const dif = Math.abs(tm - td) / 2;
+    let deuda = '¡Parejos!';
+    if (tm > td) deuda = 'Darío le debe $' + dif.toFixed(2) + ' a Mercedes';
+    else if (td > tm) deuda = 'Mercedes le debe $' + dif.toFixed(2) + ' a Darío';
+    html += '<tr style="background:#fff3cd;"><td colspan="6" style="text-align:center;font-weight:bold;">' + deuda + '</td></tr></table></body></html>';
+    const blob = new Blob([html], {type: 'application/vnd.ms-excel'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'GASTOS_' + new Date().toISOString().split('T')[0] + '.xls';
+    a.click();
+}
+
+function sincronizar() { cargarDatos(); }
+</script>
+</body>
+</html>
